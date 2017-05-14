@@ -1,107 +1,98 @@
-var page = require("webpage").create();
+var args = require("system").args,
+    page = require("webpage").create(),
+    key  = page.event.key;
+
+if (args.length !== 8) {
+    console.error("usage: phantomjs schedule-event.js <email> <password> <group-id> <event-name> <event-location> <event-date> <event-time>");
+    phantom.exit();
+}
+
+var email         = args[1],
+    password      = args[2],
+    groupId       = args[3],
+    eventName     = args[4],
+    eventLocation = args[5],
+    eventDate     = args[6],
+    eventTime     = args[7];
+
+if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(eventDate)) {
+    console.error("Invalid date: " + eventDate);
+    phantom.exit();
+}
+
+if (!/^\d{1,2}:\d{2}$/.test(eventTime)) {
+    console.error("Invalid time: " + eventTime);
+    phantom.exit();
+}
+
+var eventTimeComponents = eventTime.split(":"),
+    eventHour   = eventTimeComponents[0],
+    eventMinute = eventTimeComponents[1];
+
+if (eventHour.length < 2) {
+    eventHour = "0" + eventHour;
+}
 
 page.viewportSize = { width: 1000, height: 1000 };
 
-// var URL= "https://www.facebook.com/groups/209660122380891/events/";
-var URL = "https://www.facebook.com/groups/1446946041993618/events/";
+var url = "https://www.facebook.com/groups/" + groupId + "/events/";
 
-function render() {
-    setTimeout(function () {
-        page.render("out.png");
-        phantom.exit();
-    }, 3000);
-}
-
-page.open(URL, function (status) {
-    console.log(status);
+page.open(url, function (status) {
     if (status === "success") {
         awaitLogin();
     } else {
-        console.log("Failed to fetch page; aborting.");
+        console.log("Failed to fetch login page; aborting.");
         phantom.exit();
     }
 });
 
-function sendText(str) {
-    for (var i = 0; i < str.length; ++i) {
-        page.sendEvent("keypress", str[i]);
-    }
-}
-
-function awaitEventDialog() {
+function awaitLogin() {
     setTimeout(function () {
-        console.log("Checking for event dialog...");
-        var found = page.evaluate(findEventDialog);
-        console.log("Found " + found + " elements.");
-        if (found >= 6) {
-            var sent = 0;
-            console.log("Got event dialog! Filling out the form.");
-            if (page.evaluate(focusInput, "name")) {
-                console.log("Filling out the title...");
-                sendText("Round Table Game Night");
-                console.log("Filled out the title.");
-                ++sent;
-            } else {
-                console.log("Failed to focus on event name!");
-            }
-            page.sendEvent("keypress", page.event.key.Tab);
-            console.log("Filling out the place...");
-            sendText("San Mateo Round Table");
-            console.log("Filled out the place.");
-            ++sent;
-            page.sendEvent("keypress", page.event.key.Tab);
-            page.sendEvent("keypress", page.event.key.Backspace);
-            console.log("Filling out the date.");
-            sendText("6/2/2017");
-            console.log("Filled out the date.");
-            ++sent;
-            page.sendEvent("keypress", page.event.key.Tab);
-            console.log("Filling out the hour.");
-            sendText("06");
-            console.log("Filled out the hour.");
-            ++sent;
-            page.sendEvent("keypress", page.event.key.Tab);
-            console.log("Filling out the minutes.");
-            sendText("30");
-            console.log("Filled out the minutes.");
-            ++sent;
-            if (sent === 5) {
-                console.log("Filled out all fields, submitting and rendering...");
-                page.evaluate(submitEvent);
-                render();
-            } else {
-                console.log("Didn't fill out all fields for some reason!");
-                phantom.exit();
-            }
+        console.log("Waiting for login...");
+        if (page.evaluate(login)) {
+            console.log("Logged in!");
+            awaitEventPage();
         } else {
-            console.log("Don't got event dialog.");
-            awaitEventDialog();
+            awaitLogin();
         }
     }, 1000);
 }
 
 function awaitEventPage() {
     setTimeout(function () {
-        console.log("Checking for event page...");
-        if (page.evaluate(findEventPage)) {
-            console.log("Got event page!");
+        console.log("Waiting for event page...");
+        if (page.evaluate(createNewEvent)) {
+            console.log("Got it!");
             awaitEventDialog();
         } else {
-            console.log("Don't got event dialog.");
             awaitEventPage();
         }
     }, 1000);
 }
 
-function awaitLogin() {
+function awaitEventDialog() {
     setTimeout(function () {
-        console.log("Checking for login...");
-        if (page.evaluate(login)) {
-            console.log("Got login!");
-            awaitEventPage();
+        console.log("Waiting for event dialog...")
+        if (page.evaluate(findEventDialog)) {
+            console.log("Got event dialog! Filling out the form.");
+            sendKeys(
+                eventName,
+                key.Tab,
+                eventLocation,
+                key.Tab,
+                key.Backspace,
+                eventDate,
+                key.Tab,
+                eventHour,
+                key.Tab,
+                eventMinute
+            );
+            console.log("Filled out all fields, submitting and rendering...");
+            page.evaluate(submitEvent);
+            render();
         } else {
-            console.log("Don't got login.");
-            awaitLogin();
+            console.log("Don't got event dialog.");
+            awaitEventDialog();
         }
     }, 1000);
 }
@@ -120,92 +111,98 @@ function login() {
     }
 }
 
-function findEventPage() {
-    var anchors = document.getElementsByTagName("A");
-    for (var i = 0; i < anchors.length; ++i) {
-        var anchor = anchors[i];
-        if (/\/events\/dialog\/create/.test(anchor.getAttribute("ajaxify"))) {
-            anchor.click();
-            return true;
-        }
+function clickCreateEventButton(anchor) {
+    if (/\/events\/dialog\/create/.test(anchor.getAttribute("ajaxify"))) {
+        anchor.click();
+        return true;
+    } else {
+        return false;
     }
-    return false;
+}
+
+function createNewEvent() {
+    var ajaxifies = [ ];
+    var anchors = Array.prototype.filter.call(
+        document.getElementsByTagName("A"),
+        function (anchor) {
+            ajaxifies.push(anchor.getAttribute("ajaxify"));
+            return /\/events\/dialog\/create/.test(anchor.getAttribute("ajaxify"));
+        }
+    );
+    if (anchors.length > 0) {
+        anchors[0].click();
+        return true;
+    } else {
+        return ajaxifies;
+    }
 }
 
 function focusInput(data) {
-    var inputs = document.getElementsByTagName("INPUT");
-    for (var i = 0; i < inputs.length; ++i) {
-        var input = inputs[i];
-        if (input.getAttribute("data-phantomjs") === data) {
-            input.focus();
-            return true;
+    var inputs = Array.prototype.filter.call(
+        document.getElementsByTagName("INPUT"),
+        function (input) {
+            return input.getAttribute("data-phantomjs") === data;
         }
+    );
+    if (inputs.length > 0) {
+        inputs[0].focus();
+        return true;
+    } else {
+        return false;
     }
-    return false;
 }
 
 function submitEvent() {
-    var buttons = document.getElementsByTagName("BUTTON");
-    for (var i = 0; i < buttons.length; ++i) {
-        var button = buttons[i];
-        if (button.getAttribute("data-phantomjs") === "submit") {
-            console.log("Clicking the submit button!");
-            button.click();
-            return true;
+    var buttons = Array.prototype.filter.call(
+        document.getElementsByTagName("BUTTON"),
+        function (button) {
+            return button.getAttribute("data-phantomjs") === "submit";
         }
+    );
+    if (buttons.length > 0) {
+        buttons[0].click();
+        return true;
+    } else {
+        return false;
     }
-    return false;
 }
 
 function findEventDialog() {
-    // event name: input[placeholder="Add a short, clear name"]
-    // location: input[placeholder="Include a place or address"]
-    // Date: input[placeholder="mm/dd/yyyy"]
-    // Hours: input with aria-describedby is the id of a span with aria-label="hours"
-    // Time: Likewise but with aria-describedby = "minutes"
-    var found = 0;
-    var spans = document.getElementsByTagName("SPAN");
-    var spanLabelById = { };
-    for (var i = 0; i < spans.length; ++i) {
-        var span = spans[i];
-        var id = span.getAttribute("id");
-        var label = span.getAttribute("aria-label");
-        if (id && label) {
-            spanLabelById["K" + id] = label;
+    var inputs = Array.prototype.filter.call(
+        document.getElementsByTagName("INPUT"),
+        function (input) {
+            return input.getAttribute("placeholder") === "Add a short, clear name";
         }
-    }
-    var inputs = document.getElementsByTagName("INPUT");
-    for (var i = 0; i < inputs.length; ++i) {
-        var input = inputs[i];
-        var placeholder = input.getAttribute("placeholder");
-        var describedBy = input.getAttribute("aria-describedby");
-        if (placeholder === "Add a short, clear name") {
-            input.setAttribute("data-phantomjs", "name")
-            ++found;
-        } else if (placeholder === "Include a place or address") {
-            input.setAttribute("data-phantomjs", "place");
-            ++found;
-        } else if (placeholder === "mm/dd/yyyy") {
-            input.setAttribute("data-phantomjs", "date");
-            ++found;
-        } else if (describedBy) {
-            if (spanLabelById["K" + describedBy] === "hours") {
-                input.setAttribute("data-phantomjs", "hours");
-                ++found;
-            } else if (spanLabelById["K" + describedBy] === "minutes") {
-                input.setAttribute("data-phantomjs", "minutes");
-                ++found;
-            }
+    );
+    var buttons = Array.prototype.filter.call(
+        document.getElementsByTagName("BUTTON"),
+        function (button) {
+            return button.getAttribute("data-testid") === "event-create-dialog-confirm-button";
         }
+    );
+    if (inputs.length > 0 && buttons.length > 0) {
+        inputs[0].focus();
+        buttons[0].setAttribute("data-phantomjs", "submit");
+        return true;
+    } else {
+        return false;
     }
-    var buttons = document.getElementsByTagName("BUTTON");
-    for (var i = 0; i < buttons.length; ++i) {
-        var button = buttons[i];
-        if (button.getAttribute("data-testid") === "event-create-dialog-confirm-button") {
-            button.setAttribute("data-phantomjs", "submit");
-            ++found;
-            break;
-        }
-    }
-    return found;
+}
+
+function render() {
+    setTimeout(function () {
+        page.render("out.png");
+        phantom.exit();
+    }, 3000);
+}
+
+function sendKeys() {
+    Array.prototype.concat.apply(
+        [],
+        Array.prototype.map.call(arguments, function (x) {
+            return typeof x === "string" ? x.split("") : [ x ];
+        })
+    ).forEach(function (key) {
+        page.sendEvent("keypress", key);
+    });
 }
