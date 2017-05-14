@@ -3,8 +3,7 @@ var args = require("system").args,
     key  = page.event.key;
 
 if (args.length !== 8) {
-    console.error("usage: phantomjs schedule-event.js <email> <password> <group-id> <event-name> <event-location> <event-date> <event-time>");
-    phantom.exit();
+    fail("usage: phantomjs schedule-event.js <email> <password> <group-id> <event-name> <event-location> <event-date> <event-time>");
 }
 
 var email         = args[1],
@@ -16,13 +15,11 @@ var email         = args[1],
     eventTime     = args[7];
 
 if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(eventDate)) {
-    console.error("Invalid date: " + eventDate);
-    phantom.exit();
+    fail("Invalid date: " + eventDate);
 }
 
 if (!/^\d{1,2}:\d{2}$/.test(eventTime)) {
-    console.error("Invalid time: " + eventTime);
-    phantom.exit();
+    fail("Invalid time: " + eventTime);
 }
 
 var eventTimeComponents = eventTime.split(":"),
@@ -41,8 +38,7 @@ page.open(url, function (status) {
     if (status === "success") {
         awaitLogin();
     } else {
-        console.log("Failed to fetch login page; aborting.");
-        phantom.exit();
+        fail("Failed to fetch login page; aborting.");
     }
 });
 
@@ -121,11 +117,9 @@ function clickCreateEventButton(anchor) {
 }
 
 function createNewEvent() {
-    var ajaxifies = [ ];
     var anchors = Array.prototype.filter.call(
         document.getElementsByTagName("A"),
         function (anchor) {
-            ajaxifies.push(anchor.getAttribute("ajaxify"));
             return /\/events\/dialog\/create/.test(anchor.getAttribute("ajaxify"));
         }
     );
@@ -133,7 +127,7 @@ function createNewEvent() {
         anchors[0].click();
         return true;
     } else {
-        return ajaxifies;
+        return false;
     }
 }
 
@@ -187,6 +181,11 @@ function findEventDialog() {
     } else {
         return false;
     }
+}
+
+function fail(message) {
+    console.error(message);
+    phantom.exit();
 }
 
 function render() {
