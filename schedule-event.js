@@ -23,12 +23,15 @@ if (!/^\d{1,2}:\d{2}$/.test(eventTime)) {
 }
 
 var eventTimeComponents = eventTime.split(":"),
-    eventHour   = eventTimeComponents[0],
-    eventMinute = eventTimeComponents[1];
+    eventHour   = parseInt(eventTimeComponents[0], 10),
+    eventMinute = eventTimeComponents[1],
+    eventAm     = eventHour < 12;
 
-if (eventHour.length < 2) {
-    eventHour = "0" + eventHour;
+if (eventHour > 12) {
+    eventHour -= 12;
 }
+
+eventHour = (eventHour < 10 ? "0" : "") + eventHour;
 
 page.viewportSize = { width: 1000, height: 1000 };
 
@@ -81,7 +84,9 @@ function awaitEventDialog() {
                 key.Tab,
                 eventHour,
                 key.Tab,
-                eventMinute
+                eventMinute,
+                key.Tab,
+                eventAm ? "A" : "P"
             );
             console.log("Filled out all fields, submitting and rendering...");
             page.evaluate(submitEvent);
@@ -199,7 +204,7 @@ function sendKeys() {
     Array.prototype.concat.apply(
         [],
         Array.prototype.map.call(arguments, function (x) {
-            return typeof x === "string" ? x.split("") : [ x ];
+            return typeof x === "string" ? x.split("") : x;
         })
     ).forEach(function (key) {
         page.sendEvent("keypress", key);
