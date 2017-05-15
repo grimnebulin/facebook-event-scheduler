@@ -77,25 +77,38 @@ function awaitEventDialog() {
             sendKeys(
                 eventName,
                 key.Tab,
-                eventLocation,
-                key.Tab,
-                key.Backspace,
-                eventDate,
-                key.Tab,
-                eventHour,
-                key.Tab,
-                eventMinute,
-                key.Tab,
-                eventAm ? "A" : "P"
+                eventLocation
             );
-            console.log("Filled out all fields, submitting and rendering...");
-            page.evaluate(submitEvent);
-            render();
+            setTimeout(awaitLocationDropdown, 1000);
         } else {
             console.log("Don't got event dialog.");
             awaitEventDialog();
         }
     }, 1000);
+}
+
+function awaitLocationDropdown() {
+    setTimeout(function () {
+        console.log("Waiting for event dropdown to catch up...");
+        sendKeys(
+            key.Down,
+            key.Return,
+            key.Tab,
+            key.Backspace,
+            eventDate,
+            key.Tab,
+            eventHour,
+            key.Tab,
+            eventMinute,
+            key.Tab,
+            eventAm ? "A" : "P"
+        );
+        console.log("Filled out all fields, submitting and rendering...");
+        if (!page.evaluate(submitEvent)) {
+            fail("Failed to click the submit-event button for some reason!");
+        }
+        render();
+    }, 2000);
 }
 
 function login() {
@@ -122,29 +135,9 @@ function clickCreateEventButton(anchor) {
 }
 
 function createNewEvent() {
-    var anchors = Array.prototype.filter.call(
-        document.getElementsByTagName("A"),
-        function (anchor) {
-            return /\/events\/dialog\/create/.test(anchor.getAttribute("ajaxify"));
-        }
-    );
-    if (anchors.length > 0) {
-        anchors[0].click();
-        return true;
-    } else {
-        return false;
-    }
-}
-
-function focusInput(data) {
-    var inputs = Array.prototype.filter.call(
-        document.getElementsByTagName("INPUT"),
-        function (input) {
-            return input.getAttribute("data-phantomjs") === data;
-        }
-    );
-    if (inputs.length > 0) {
-        inputs[0].focus();
+    var anchor = document.querySelector("a[ajaxify*='/events/dialog/create']");
+    if (anchor) {
+        anchor.click();
         return true;
     } else {
         return false;
@@ -152,14 +145,9 @@ function focusInput(data) {
 }
 
 function submitEvent() {
-    var buttons = Array.prototype.filter.call(
-        document.getElementsByTagName("BUTTON"),
-        function (button) {
-            return button.getAttribute("data-phantomjs") === "submit";
-        }
-    );
-    if (buttons.length > 0) {
-        buttons[0].click();
+    var button = document.querySelector("button[data-phantomjs='submit']");
+    if (button) {
+        button.click();
         return true;
     } else {
         return false;
@@ -167,21 +155,11 @@ function submitEvent() {
 }
 
 function findEventDialog() {
-    var inputs = Array.prototype.filter.call(
-        document.getElementsByTagName("INPUT"),
-        function (input) {
-            return input.getAttribute("placeholder") === "Add a short, clear name";
-        }
-    );
-    var buttons = Array.prototype.filter.call(
-        document.getElementsByTagName("BUTTON"),
-        function (button) {
-            return button.getAttribute("data-testid") === "event-create-dialog-confirm-button";
-        }
-    );
-    if (inputs.length > 0 && buttons.length > 0) {
-        inputs[0].focus();
-        buttons[0].setAttribute("data-phantomjs", "submit");
+    var input = document.querySelector("input[placeholder='Add a short, clear name']");
+    var button = document.querySelector("button[data-testid='event-create-dialog-confirm-button']");
+    if (input && button) {
+        input.focus();
+        button.setAttribute("data-phantomjs", "submit");
         return true;
     } else {
         return false;
