@@ -79,7 +79,7 @@ function awaitEventDialog() {
                 key.Tab,
                 eventLocation
             );
-            setTimeout(awaitLocationDropdown, 1000);
+            setTimeout(awaitLocationDropdown, 2000);
         } else {
             console.log("Don't got event dialog.");
             awaitEventDialog();
@@ -90,25 +90,31 @@ function awaitEventDialog() {
 function awaitLocationDropdown() {
     setTimeout(function () {
         console.log("Waiting for event dropdown to catch up...");
-        sendKeys(
-            key.Down,
-            key.Return,
-            key.Tab,
-            key.Backspace,
-            eventDate,
-            key.Tab,
-            eventHour,
-            key.Tab,
-            eventMinute,
-            key.Tab,
-            eventAm ? "A" : "P"
-        );
-        console.log("Filled out all fields, submitting and rendering...");
-        if (!page.evaluate(submitEvent)) {
-            fail("Failed to click the submit-event button for some reason!");
-        }
-        render();
+        sendKeys(key.Down);
+        setTimeout(awaitRestOfForm, 2000);
     }, 2000);
+}
+
+function awaitRestOfForm() {
+    sendKeysSlowly(
+        key.Return,
+        key.Tab,
+        key.Backspace,
+        eventDate,
+        key.Tab,
+        eventHour,
+        key.Tab,
+        eventMinute,
+        key.Tab,
+        eventAm ? "A" : "P",
+        function () {
+            console.log("Filled out all fields, submitting and rendering...");
+            if (!page.evaluate(submitEvent)) {
+                fail("Failed to click the submit-event button for some reason!");
+            }
+            render();
+        }
+    );
 }
 
 function login() {
@@ -187,4 +193,28 @@ function sendKeys() {
     ).forEach(function (key) {
         page.sendEvent("keypress", key);
     });
+}
+
+function sendKeysSlowly(arg /* , ... */) {
+    var rest = Array.prototype.slice.call(arguments, 1);
+    var next = function (args) {
+        setTimeout(function () { sendKeysSlowly.apply(null, args) }, 250);
+    };
+    switch (typeof arg) {
+    case "function":
+        arg();
+        return;
+    case "string":
+        page.sendEvent("keypress", arg[0]);
+        if (arg.length > 1) {
+            next([ arg.substring(1) ].concat(rest));
+        } else {
+            next(rest);
+        }
+        break;
+    case "number":
+        page.sendEvent("keypress", arg);
+        next(rest);
+        break;
+    }
 }
