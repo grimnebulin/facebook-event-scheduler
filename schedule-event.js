@@ -77,9 +77,9 @@ function awaitEventDialog() {
             sendKeys(
                 eventName,
                 key.Tab,
-                eventLocation
+                eventLocation,
+                function () { setTimeout(awaitLocationDropdown, 2000) }
             );
-            setTimeout(awaitLocationDropdown, 2000);
         } else {
             console.log("Don't got event dialog.");
             awaitEventDialog();
@@ -90,13 +90,12 @@ function awaitEventDialog() {
 function awaitLocationDropdown() {
     setTimeout(function () {
         console.log("Waiting for event dropdown to catch up...");
-        sendKeys(key.Down);
-        setTimeout(awaitRestOfForm, 2000);
+        sendKeys(key.Down, function () { setTimeout(awaitRestOfForm, 2000) });
     }, 2000);
 }
 
 function awaitRestOfForm() {
-    sendKeysSlowly(
+    sendKeys(
         key.Return,
         key.Tab,
         key.Backspace,
@@ -184,21 +183,12 @@ function render() {
     }, 3000);
 }
 
-function sendKeys() {
-    Array.prototype.concat.apply(
-        [],
-        Array.prototype.map.call(arguments, function (x) {
-            return typeof x === "string" ? x.split("") : x;
-        })
-    ).forEach(function (key) {
-        page.sendEvent("keypress", key);
-    });
-}
-
-function sendKeysSlowly(arg /* , ... */) {
+function sendKeys(arg /* , ... */) {
     var rest = Array.prototype.slice.call(arguments, 1);
     var next = function (args) {
-        setTimeout(function () { sendKeysSlowly.apply(null, args) }, 250);
+        if (args.length > 0) {
+            setTimeout(function () { sendKeys.apply(null, args) }, 250);
+        }
     };
     switch (typeof arg) {
     case "function":
