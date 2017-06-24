@@ -187,7 +187,10 @@ function sendKeys(arg /* , ... */) {
     var rest = Array.prototype.slice.call(arguments, 1);
     var next = function (args) {
         if (args.length > 0) {
-            setTimeout(function () { sendKeys.apply(null, args) }, 250);
+            setTimeout(
+                function () { sendKeys.apply(null, args) },
+                250 + Math.floor(Math.random() * 250)
+            );
         }
     };
     switch (typeof arg) {
