@@ -41,7 +41,7 @@ page.open(url, function (status) {
     if (status === "success") {
         awaitLogin();
     } else {
-        fail("Failed to fetch login page; aborting.");
+        fail("Failed to fetch login page (" + status + "); aborting.");
     }
 });
 
@@ -84,7 +84,7 @@ function awaitEventDialog() {
             console.log("Don't got event dialog.");
             awaitEventDialog();
         }
-    }, 1000);
+    }, 30000);
 }
 
 function awaitLocationDropdown() {
@@ -97,6 +97,7 @@ function awaitLocationDropdown() {
 function awaitRestOfForm() {
     sendKeys(
         key.Return,
+        key.Tab,
         key.Tab,
         key.Backspace,
         eventDate,
