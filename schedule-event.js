@@ -174,7 +174,7 @@ function findEventDialog() {
 
 function fail(message) {
     console.error(message);
-    phantom.exit();
+    phantom.exit(1);
 }
 
 function render() {
