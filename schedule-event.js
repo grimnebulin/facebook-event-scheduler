@@ -1,3 +1,5 @@
+var MAX_ATTEMPTS = 50;
+
 var args = require("system").args,
     page = require("webpage").create(),
     key  = page.event.key;
@@ -39,37 +41,41 @@ var url = "https://www.facebook.com/groups/" + groupId + "/events/";
 
 page.open(url, function (status) {
     if (status === "success") {
-        awaitLogin();
+        awaitLogin(1);
     } else {
         fail("Failed to fetch login page (" + status + "); aborting.");
     }
 });
 
-function awaitLogin() {
+function awaitLogin(attempts) {
     setTimeout(function () {
         console.log("Waiting for login...");
         if (page.evaluate(login)) {
             console.log("Logged in!");
-            awaitEventPage();
+            awaitEventPage(1);
+        } else if (attempts === MAX_ATTEMPTS) {
+            fail("Failed to recognize login.")
         } else {
-            awaitLogin();
+            awaitLogin(attempts + 1);
         }
     }, 1000);
 }
 
-function awaitEventPage() {
+function awaitEventPage(attempts) {
     setTimeout(function () {
         console.log("Waiting for event page...");
         if (page.evaluate(createNewEvent)) {
             console.log("Got it!");
-            awaitEventDialog();
+            awaitEventDialog(1);
+        } else if (attempts === MAX_ATTEMPTS) {
+            fail("Failed to recognize event page.")
         } else {
-            awaitEventPage();
+            awaitEventPage(attempts + 1);
         }
     }, 1000);
 }
 
-function awaitEventDialog() {
+function awaitEventDialog(attempts) {
     setTimeout(function () {
         console.log("Waiting for event dialog...")
         if (page.evaluate(findEventDialog)) {
@@ -80,9 +86,11 @@ function awaitEventDialog() {
                 eventLocation,
                 function () { setTimeout(awaitLocationDropdown, 2000) }
             );
+        } else if (attempts === MAX_ATTEMPTS) {
+            fail("Failed to recognize event dialog.");
         } else {
             console.log("Don't got event dialog.");
-            awaitEventDialog();
+            awaitEventDialog(attempts + 1);
         }
     }, 30000);
 }
