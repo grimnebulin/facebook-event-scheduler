@@ -107,6 +107,7 @@ function awaitRestOfForm() {
         key.Return,
         key.Tab,
         key.Tab,
+        key.Tab,
         key.Backspace,
         eventDate,
         key.Tab,
